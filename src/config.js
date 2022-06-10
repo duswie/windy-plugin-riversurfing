@@ -1,6 +1,6 @@
 module.exports = {
     // Display name of your plugin, as it will appear in the menu
-    displayName: 'My super plugin',
+    displayName: 'Riverwindsurfing',
 
     // Place, where opening link to your plugin will appear. So far only
     // Allowed: 'contextmenu', 'menu'
@@ -27,4 +27,9 @@ module.exports = {
 
     // If you want to apply different mounting point on mobile devices
     // attachPointMobile: '#plugins'
+    className: 'plugin-rhpane plugin-mobile-rhpane',
+    exclusive: 'rhpane',
+    dependencies: [
+        'https://unpkg.com/axios/dist/axios.min.js',
+    ],
 };

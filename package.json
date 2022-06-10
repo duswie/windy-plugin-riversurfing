@@ -1,7 +1,7 @@
 {
-    "name": "windy-plugin-examples",
-    "version": "0.5.0",
-    "description": "Windy plugin system enables anyone, with basic knowledge of Javascript to enhance Windy with new functionality (default desc).",
+    "name": "windy-plugin-riversurfing",
+    "version": "0.0.1",
+    "description": "Windy plugin for river windsurfers",
     "main": "dist/plugin.js",
     "scripts": {
         "start": "node ./compiler.js --build --watch --prompt --serve --transpile",
@@ -11,9 +11,9 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/windycom/windy-plugins"
+        "url": "git+https://github.com/duswie/windy-plugin-riversurfing"
     },
-    "author": "Windyty, S.E.",
+    "author": "Dustin Wiemar",
     "license": "MIT",
     "dependencies": {
         "@babel/core": "^7.1.2",
@@ -25,6 +25,7 @@
         "decache": "^4.4.0",
         "express": "^4.16.4",
         "fs-extra": "^7.0.0",
+        "install": "^0.13.0",
         "less": "^3.8.1",
         "prompts": "^1.1.1",
         "riot-compiler": "^3.5.1",

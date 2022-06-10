@@ -1,11 +1,136 @@
 <plugin>
-    <b>This plugin will rock</b>
+    <div class="plugin-content">
+        Using excellent <b>Leaflet Omnivore</b>
+        we can display whichever format we want.
 
+        <ul data-ref="links"></ul>
+    </div>
     <script>
-        console.log('I am mounted to the page');
+        import * as _ from '@windy/utils';
+        import { map } from '@windy/map';
+        import interpolator from '@windy/interpolator';
+        import store from '@windy/store';
+        import bcast from '@windy/broadcast';
 
-        this.onopen = () => console.log('I am opened');
 
-        this.onclose = () => console.log('I am being closed');
+
+
+        let layer = null;
+        //TODO: optimize geojson
+        const url = `https://3dcl-previews.s3.eu-central-1.amazonaws.com/rhein.geojson`;
+        let lines = [];
+
+        this.onclose = () => removeFile();
+
+        this.onopen = () => {
+            console.log('Loading:', url);
+
+            store.set('overlay', 'wind');
+
+
+            axios.get(url)
+                .then(function (response) {
+                    console.log(response);
+                    response.data.features.forEach(function (f) {
+                        if (f.geometry.type != "LineString") return;
+                        if (f.geometry.coordinates.length < 2) return;
+    
+                        for (let i = 1; i < f.geometry.coordinates.length; ++i) {
+                            let latlng = L.latLng(f.geometry.coordinates[i][1], f.geometry.coordinates[i][0])
+                            let latlng_last = L.latLng(f.geometry.coordinates[i - 1][1], f.geometry.coordinates[i - 1][0])
+    
+    
+                            lines.push(L.polyline([latlng_last, latlng]).addTo(map));
+                        }
+    
+                    });
+                    interpolateValues();
+                })
+                .catch(function (error) {
+                    // handle error
+                    console.log(error);
+                });
+    
+            // Major interpolation function
+            const interpolateValues = () => {
+                /**
+                 * This example can interpolate only wind overlay, but
+                 * you can interpolate almost any raster layer of Windy
+                 */
+                if (store.get('overlay') !== 'wind') {
+                    console.warn('I can iterpolate only Wind sorry');
+                    return;
+                }
+    
+                /**
+                 * Interpolator returns interpolation function
+                 */
+    
+                interpolator(interpolate => {
+                    for (let i = 0; i < lines.length; i++) {
+                        // eslint-disable-next-line no-unused-vars
+                        const latlngs = lines[i].getLatLngs()
+                        const lat = latlngs[0].lat
+                        const lon = latlngs[0].lng
+                        const lat2 = latlngs[1].lat
+                        const lon2 = latlngs[1].lng
+    
+                        //calculate baring TODO: Only do this once
+                        const y = Math.sin(lon2 - lon) * Math.cos(lat2);
+                        const x = Math.cos(lat) * Math.sin(lat2) - Math.sin(lat) * Math.cos(lat2) * Math.cos(lon2 - lon);
+                        const θ = Math.atan2(y, x);
+                        const brng = (θ * 180 / Math.PI + 360) % 360; // in degrees
+    
+                        /**
+                         * Interpolate finaly gets you the values
+                         * @param {Object} { lat, lon }
+                         * @return {Array} array of raw meterological values or null, NaN, -1
+                         */
+                        const values = interpolate.call(interpolator, { lat, lon });
+    
+                        /**
+                         * Remeber that we are able to interpolate values only for
+                         * points that are visible on map
+                         */
+                        if (Array.isArray(values)) {
+                            const { wind, dir } = _.wind2obj(values);
+    
+                            let diff = Math.abs(brng - dir)
+    
+                            if (diff < 20 && wind > 4) {
+                                lines[i].setStyle({ color: "red" });
+                            }else if  (diff < 30) {
+                                    lines[i].setStyle({ color: "orange" });
+                            }else{
+                                lines[i].setStyle({ color: "blue" });
+                            }
+                        } else {
+                            lines[i].setStyle({ color: "gray" });
+                        }
+                    }
+                });
+            };
+    
+    
+            bcast.on('redrawFinished', interpolateValues);
+        };
+
+
+
+
+
+ 
+
+
+
+
+
+        const removeFile = () => {
+            if (lines) {
+                lines.forEach(line => map.removeLayer(line));
+                bcast.off('redrawFinished', interpolateValues);
+                lines = null;
+            }
+        };
     </script>
 </plugin>
