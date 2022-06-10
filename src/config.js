@@ -30,6 +30,6 @@ module.exports = {
     className: 'plugin-rhpane plugin-mobile-rhpane',
     exclusive: 'rhpane',
     dependencies: [
-        'https://unpkg.com/axios/dist/axios.min.js',
+
     ],
 };

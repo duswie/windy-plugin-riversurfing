@@ -19,7 +19,7 @@ W.loadPlugin(
   "hook": "menu",
   "className": "plugin-rhpane plugin-mobile-rhpane",
   "exclusive": "rhpane",
-  "dependencies": ["https://unpkg.com/axios/dist/axios.min.js"]
+  "dependencies": []
 },
 /* HTML */
 '<div class="plugin-content"> Using excellent <b>Leaflet Omnivore</b> we can display whichever format we want. <ul data-ref="links"></ul> </div>',
@@ -41,17 +41,15 @@ function () {
   var layer = null;
   var url = "https://3dcl-previews.s3.eu-central-1.amazonaws.com/rhein.geojson";
   var lines = [];
-
-  this.onclose = function () {
-    return removeFile();
-  };
+  var bearings = [];
 
   this.onopen = function () {
     console.log('Loading:', url);
     store.set('overlay', 'wind');
-    axios.get(url).then(function (response) {
-      console.log(response);
-      response.data.features.forEach(function (f) {
+    fetch(url).then(function (response) {
+      return response.json();
+    }).then(function (response) {
+      response.features.forEach(function (f) {
         if (f.geometry.type != "LineString") return;
         if (f.geometry.coordinates.length < 2) return;
 
@@ -59,74 +57,80 @@ function () {
           var latlng = L.latLng(f.geometry.coordinates[i][1], f.geometry.coordinates[i][0]);
           var latlng_last = L.latLng(f.geometry.coordinates[i - 1][1], f.geometry.coordinates[i - 1][0]);
           lines.push(L.polyline([latlng_last, latlng]).addTo(map));
+          var lat = latlng_last.lat;
+          var lon = latlng_last.lng;
+          var lat2 = latlng.lat;
+          var lon2 = latlng.lng;
+          var y = Math.sin(lon2 - lon) * Math.cos(lat2);
+          var x = Math.cos(lat) * Math.sin(lat2) - Math.sin(lat) * Math.cos(lat2) * Math.cos(lon2 - lon);
+          var θ = Math.atan2(y, x);
+          bearings.push((θ * 180 / Math.PI + 360) % 360);
         }
       });
       interpolateValues();
     })["catch"](function (error) {
       console.log(error);
     });
-
-    var interpolateValues = function interpolateValues() {
-      if (store.get('overlay') !== 'wind') {
-        console.warn('I can iterpolate only Wind sorry');
-        return;
-      }
-
-      interpolator(function (interpolate) {
-        for (var i = 0; i < lines.length; i++) {
-          var latlngs = lines[i].getLatLngs();
-          var lat = latlngs[0].lat;
-          var lon = latlngs[0].lng;
-          var lat2 = latlngs[1].lat;
-          var lon2 = latlngs[1].lng;
-          var y = Math.sin(lon2 - lon) * Math.cos(lat2);
-          var x = Math.cos(lat) * Math.sin(lat2) - Math.sin(lat) * Math.cos(lat2) * Math.cos(lon2 - lon);
-          var θ = Math.atan2(y, x);
-          var brng = (θ * 180 / Math.PI + 360) % 360;
-          var values = interpolate.call(interpolator, {
-            lat: lat,
-            lon: lon
-          });
-
-          if (Array.isArray(values)) {
-            var _$wind2obj = _.wind2obj(values),
-                wind = _$wind2obj.wind,
-                dir = _$wind2obj.dir;
-
-            var diff = Math.abs(brng - dir);
-
-            if (diff < 20 && wind > 4) {
-              lines[i].setStyle({
-                color: "red"
-              });
-            } else if (diff < 30) {
-              lines[i].setStyle({
-                color: "orange"
-              });
-            } else {
-              lines[i].setStyle({
-                color: "blue"
-              });
-            }
-          } else {
-            lines[i].setStyle({
-              color: "gray"
-            });
-          }
-        }
-      });
-    };
-
     bcast.on('redrawFinished', interpolateValues);
   };
 
-  var removeFile = function removeFile() {
-    if (lines) {
+  var interpolateValues = function interpolateValues() {
+    if (store.get('overlay') !== 'wind') {
+      console.warn('I can iterpolate only Wind sorry');
+      return;
+    }
+
+    interpolator(function (interpolate) {
+      for (var i = 0; i < lines.length; i++) {
+        var latlngs = lines[i].getLatLngs();
+        var lat = latlngs[0].lat;
+        var lon = latlngs[0].lng;
+        var values = interpolate.call(interpolator, {
+          lat: lat,
+          lon: lon
+        });
+
+        if (Array.isArray(values)) {
+          var _$wind2obj = _.wind2obj(values),
+              wind = _$wind2obj.wind,
+              dir = _$wind2obj.dir;
+
+          var diff = Math.abs(bearings[i] - dir);
+
+          if (diff < 15 && wind > 4) {
+            lines[i].setStyle({
+              color: "red"
+            });
+          } else if (diff < 30 && wind > 4) {
+            lines[i].setStyle({
+              color: "orange"
+            });
+          } else if (diff < 30) {
+            lines[i].setStyle({
+              color: "deepskyblue"
+            });
+          } else {
+            lines[i].setStyle({
+              color: "blue"
+            });
+          }
+        } else {
+          lines[i].setStyle({
+            color: "gray"
+          });
+        }
+      }
+    });
+  };
+
+  this.onclose = function () {
+    if (lines.length > 0) {
       lines.forEach(function (line) {
         return map.removeLayer(line);
       });
       bcast.off('redrawFinished', interpolateValues);
-      lines = null;
+      lines = [];
+      bearings = [];
     }
   };
 });
