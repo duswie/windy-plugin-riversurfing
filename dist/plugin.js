@@ -38,13 +38,11 @@ function () {
 
   var _ = W.require('utils');
 
-  var layer = null;
-  var url = "https://3dcl-previews.s3.eu-central-1.amazonaws.com/rhein.geojson";
   var lines = [];
   var bearings = [];
+  var url = "https://3dcl-previews.s3.eu-central-1.amazonaws.com/rhein.geojson";
 
   this.onopen = function () {
-    console.log('Loading:', url);
     store.set('overlay', 'wind');
     fetch(url).then(function (response) {
       return response.json();
