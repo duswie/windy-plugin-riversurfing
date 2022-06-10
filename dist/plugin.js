@@ -8,7 +8,7 @@ W.loadPlugin(
 /* Mounting options */
 {
   "name": "windy-plugin-riversurfing",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": "Dustin Wiemar",
   "repository": {
     "type": "git",
