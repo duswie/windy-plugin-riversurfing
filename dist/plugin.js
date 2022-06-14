@@ -22,7 +22,7 @@ W.loadPlugin(
   "dependencies": []
 },
 /* HTML */
-'<div class="plugin-content"> Using excellent <b>Leaflet Omnivore</b> we can display whichever format we want. <ul data-ref="links"></ul> </div>',
+'',
 /* CSS */
 '',
 /* Constructor */
@@ -39,7 +39,6 @@ function () {
   var _ = W.require('utils');
 
   var lines = [];
-  var bearings = [];
   var url = "https://3dcl-previews.s3.eu-central-1.amazonaws.com/rhein.geojson";
 
   this.onopen = function () {
@@ -51,10 +50,9 @@ function () {
         if (f.geometry.type != "LineString") return;
         if (f.geometry.coordinates.length < 2) return;
 
-        for (var i = 1; i < f.geometry.coordinates.length; ++i) {
+        for (var i = 1; i < f.geometry.coordinates.length; i++) {
           var latlng = L.latLng(f.geometry.coordinates[i][1], f.geometry.coordinates[i][0]);
           var latlng_last = L.latLng(f.geometry.coordinates[i - 1][1], f.geometry.coordinates[i - 1][0]);
-          lines.push(L.polyline([latlng_last, latlng]).addTo(map));
           var lat = latlng_last.lat;
           var lon = latlng_last.lng;
           var lat2 = latlng.lat;
@@ -62,7 +60,10 @@ function () {
           var y = Math.sin(lon2 - lon) * Math.cos(lat2);
           var x = Math.cos(lat) * Math.sin(lat2) - Math.sin(lat) * Math.cos(lat2) * Math.cos(lon2 - lon);
           var θ = Math.atan2(y, x);
-          bearings.push((θ * 180 / Math.PI + 360) % 360);
+          var bearing = (θ * 180 / Math.PI + 360) % 360;
+          var line = L.polyline([latlng_last, latlng]).addTo(map);
+          line.bearing = bearing;
+          lines.push(line);
         }
       });
       interpolateValues();
@@ -83,27 +84,32 @@ function () {
         var latlngs = lines[i].getLatLngs();
         var lat = latlngs[0].lat;
         var lon = latlngs[0].lng;
-        var values = interpolate.call(interpolator, {
+        var values = interpolate({
           lat: lat,
           lon: lon
         });
+
+        var anglediff = function anglediff(a, b) {
+          var abs = Math.abs(a - b);
+          return Math.min(abs, 360 - abs);
+        };
 
         if (Array.isArray(values)) {
           var _$wind2obj = _.wind2obj(values),
               wind = _$wind2obj.wind,
               dir = _$wind2obj.dir;
 
-          var diff = Math.abs(bearings[i] - dir);
+          var diff = Math.abs(anglediff(lines[i].bearing, dir));
 
           if (diff < 15 && wind > 4) {
             lines[i].setStyle({
               color: "red"
             });
-          } else if (diff < 30 && wind > 4) {
+          } else if (diff < 20 && wind > 4) {
             lines[i].setStyle({
               color: "orange"
             });
-          } else if (diff < 30) {
+          } else if (diff < 20) {
             lines[i].setStyle({
               color: "deepskyblue"
             });
@@ -126,9 +132,9 @@ function () {
       lines.forEach(function (line) {
         return map.removeLayer(line);
       });
-      bcast.off('redrawFinished', interpolateValues);
-      lines = [];
-      bearings = [];
     }
+
+    bcast.off('redrawFinished', interpolateValues);
+    lines = [];
   };
 });
